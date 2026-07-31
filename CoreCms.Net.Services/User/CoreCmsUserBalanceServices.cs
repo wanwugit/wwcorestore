@@ -319,7 +319,8 @@ namespace CoreCms.Net.Services
             var amount = request.Amount;
 
             // 扣减类操作
-            var isDeduction = request.OperationType is "Pay" or "Tocash" or "Cancel" or "Clawback" or "DebtOffset";
+            var isDeduction = request.OperationType is "Pay" or "Tocash" or "Cancel" or "Clawback" or "DebtOffset"
+                or "UnfreezeFrozen" or "CancelFrozen" or "ClawbackAvailable" or "WithdrawAvailable";
             if (isDeduction)
             {
                 return -(amount + request.ServiceFee);
@@ -367,6 +368,10 @@ namespace CoreCms.Net.Services
             "Prize" => 7,
             "Service" => 8,
             "Agent" => 9,
+            "CommissionFreeze" => 10,
+            "CommissionUnfreeze" => 11,
+            "CommissionCancel" => 12,
+            "CommissionClawback" => 13,
             _ => 0
         };
 

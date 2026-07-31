@@ -216,6 +216,26 @@ namespace CoreCms.Net.Configuration
             /// </summary>
             [Description("代理商提成")]
             Agent = 9,
+            /// <summary>
+            /// 佣金冻结（订单支付成功，佣金入冻结）
+            /// </summary>
+            [Description("佣金冻结")]
+            CommissionFreeze = 10,
+            /// <summary>
+            /// 佣金解冻（订单完成，冻结转可提现）
+            /// </summary>
+            [Description("佣金解冻")]
+            CommissionUnfreeze = 11,
+            /// <summary>
+            /// 佣金取消（退款时佣金仍在冻结，取消）
+            /// </summary>
+            [Description("佣金取消")]
+            CommissionCancel = 12,
+            /// <summary>
+            /// 佣金追回（退款时佣金已解冻，从可提现追回，不足部分记负债）
+            /// </summary>
+            [Description("佣金追回")]
+            CommissionClawback = 13,
         }
         /// <summary>
         /// 用户积分变动来源类型
@@ -2172,6 +2192,31 @@ namespace CoreCms.Net.Configuration
             /// </summary>
             [Description("已失效")]
             SettlementCancel = 3,
+        }
+
+        /// <summary>
+        /// 佣金状态机（CoreCmsDistributionOrder.status）
+        /// </summary>
+        public enum CommissionStatus
+        {
+            /// <summary>待处理（订单已创建，尚未支付）</summary>
+            [Description("待处理")]
+            Pending = 0,
+            /// <summary>已冻结（订单已支付，佣金冻结中）</summary>
+            [Description("已冻结")]
+            Frozen = 1,
+            /// <summary>可提现（订单完成，已解冻可提现）</summary>
+            [Description("可提现")]
+            Available = 2,
+            /// <summary>已取消（退款时佣金仍在冻结，直接取消）</summary>
+            [Description("已取消")]
+            Cancelled = 3,
+            /// <summary>已追回（退款时佣金已解冻，从可提现中追回，不足部分记负债）</summary>
+            [Description("已追回")]
+            ClawedBack = 4,
+            /// <summary>异常（需人工处理）</summary>
+            [Description("异常")]
+            Exception = 9,
         }
 
         /// <summary>

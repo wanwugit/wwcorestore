@@ -94,5 +94,67 @@ namespace CoreCms.Net.Model.Entities
         [SugarColumn(ColumnDescription = "是否删除")]
         [Required(ErrorMessage = "请输入{0}")]
         public System.Boolean isDelete { get; set; }
+
+        // ===== 佣金状态机字段 =====
+
+        /// <summary>
+        /// 佣金状态 0=Pending 1=Frozen 2=Available 3=Cancelled 4=ClawedBack 9=Exception
+        /// </summary>
+        [Display(Name = "佣金状态")]
+        [SugarColumn(ColumnDescription = "佣金状态 0=Pending 1=Frozen 2=Available 3=Cancelled 4=ClawedBack 9=Exception")]
+        [Required(ErrorMessage = "请输入{0}")]
+        public System.Int32 status { get; set; }
+
+        /// <summary>
+        /// 冻结金额
+        /// </summary>
+        [Display(Name = "冻结金额")]
+        [SugarColumn(ColumnDescription = "冻结金额")]
+        [Required(ErrorMessage = "请输入{0}")]
+        public System.Decimal frozenAmount { get; set; }
+
+        /// <summary>
+        /// 可提现金额
+        /// </summary>
+        [Display(Name = "可提现金额")]
+        [SugarColumn(ColumnDescription = "可提现金额")]
+        [Required(ErrorMessage = "请输入{0}")]
+        public System.Decimal availableAmount { get; set; }
+
+        /// <summary>
+        /// 冻结时间
+        /// </summary>
+        [Display(Name = "冻结时间")]
+        [SugarColumn(ColumnDescription = "冻结时间", IsNullable = true)]
+        public System.DateTime? frozenTime { get; set; }
+
+        /// <summary>
+        /// 实际结算时间
+        /// </summary>
+        [Display(Name = "实际结算时间")]
+        [SugarColumn(ColumnDescription = "实际结算时间", IsNullable = true)]
+        public System.DateTime? settledTime { get; set; }
+
+        /// <summary>
+        /// 取消时间
+        /// </summary>
+        [Display(Name = "取消时间")]
+        [SugarColumn(ColumnDescription = "取消时间", IsNullable = true)]
+        public System.DateTime? cancelledTime { get; set; }
+
+        /// <summary>
+        /// 追回时间
+        /// </summary>
+        [Display(Name = "追回时间")]
+        [SugarColumn(ColumnDescription = "追回时间", IsNullable = true)]
+        public System.DateTime? clawedBackTime { get; set; }
+
+        /// <summary>
+        /// 幂等键，非 NULL 值唯一
+        /// </summary>
+        [Display(Name = "幂等键")]
+        [SugarColumn(ColumnDescription = "幂等键", IsNullable = true)]
+        [StringLength(100, ErrorMessage = "【{0}】不能超过{1}字符长度")]
+        public System.String idempotencyKey { get; set; }
     }
 }
