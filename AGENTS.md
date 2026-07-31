@@ -95,7 +95,10 @@ Spins up MySQL 5.7 (`MYSQL_ROOT_PASSWORD=admin`) and Redis on default ports.
 
 ## Gotchas
 
-- Both `Web.Admin` and `Web.WebApi` `Program.cs` include a **Production-only** fast-fail guard: when `ASPNETCORE_ENVIRONMENT=Production`, startup throws `InvalidOperationException` listing any empty critical keys (`JwtConfig:SecretKey` ≥16 chars, `JwtConfig:Issuer`, `HangFire:Login/PassWord` [WebApi only], `SwaggerConfig:UserName/PassWord`). Fill these via `appsettings.json` or environment variables before deploying; dev runs are unaffected.
+- Both `Web.Admin` and `Web.WebApi` `Program.cs` include a **Production-only** fast-fail guard: when `ASPNETCORE_ENVIRONMENT=Production`, startup throws `InvalidOperationException` listing any empty critical keys. Fill these via `appsettings.json` or environment variables before deploying; dev runs are unaffected.
+  - **WebApi** 校验：`JwtConfig:SecretKey` ≥16 chars、`JwtConfig:Issuer`、`HangFire:Login/PassWord`、`SwaggerConfig:UserName/PassWord`（WebApi 启用了 `SwaggerBasicAuthMiddleware`，缺这段会挡住 Swagger UI 返回 401，缺密钥则 UI 不可用但不崩）。
+  - **Web.Admin** 校验：`JwtConfig:SecretKey` ≥16 chars、`JwtConfig:Issuer`。Admin 不启用 SwaggerBasicAuth 中间件（`Program.cs` 硬编码 `RoutePrefix="doc"`），故不校验 `SwaggerConfig`。
+- `Doc.xml`（`DocumentationFile=doc.xml` 在 Debug 生成的 XML 文档产物）已被 `.gitignore` 排除，勿提交。
 - Redis must be reachable before either web host starts cleanly; otherwise startup throws during `AddRedisCacheSetup` / `AddRedisMessageQueueSetup` / Hangfire storage init. Tests are unaffected.
 - `SqlSugar.IOC` and `Autofac.Extras.DynamicInterceptor` (AOP) are in `CoreCms.Net.Core` — some services may be intercepted (logging, caching attributes). Check for interceptor attributes before refactoring service constructors.
 - `CoreCms.Net.CodeGenerator` is a runtime code-generation helper, not part of the app startup. Do not wire it into the web hosts unless intentionally regenerating scaffolds.

@@ -33,20 +33,18 @@ using Yitter.IdGenerator;
 var builder = WebApplication.CreateBuilder(args);
 
 if (builder.Environment.IsProduction())
-{
-    var checks = new (string Key, string Label, int MinLen)[]
     {
-        ("JwtConfig:SecretKey", "JwtConfig:SecretKey (需 >=16 字符)", 16),
-        ("JwtConfig:Issuer", "JwtConfig:Issuer", 1),
-        ("SwaggerConfig:UserName", "SwaggerConfig:UserName", 1),
-        ("SwaggerConfig:PassWord", "SwaggerConfig:PassWord", 1),
-    };
-    var missingList = checks
-        .Where(c => string.IsNullOrWhiteSpace(builder.Configuration[c.Key]) || builder.Configuration[c.Key]!.Length < c.MinLen)
-        .Select(c => c.Label).ToList();
-    if (missingList.Count > 0)
-        throw new InvalidOperationException($"生产环境缺少关键配置，请在 appsettings.json 或环境变量中填写: {string.Join(", ", missingList)}");
-}
+        var checks = new (string Key, string Label, int MinLen)[]
+        {
+            ("JwtConfig:SecretKey", "JwtConfig:SecretKey (需 >=16 字符)", 16),
+            ("JwtConfig:Issuer", "JwtConfig:Issuer", 1),
+        };
+        var missingList = checks
+            .Where(c => string.IsNullOrWhiteSpace(builder.Configuration[c.Key]) || builder.Configuration[c.Key]!.Length < c.MinLen)
+            .Select(c => c.Label).ToList();
+        if (missingList.Count > 0)
+            throw new InvalidOperationException($"生产环境缺少关键配置，请在 appsettings.json 或环境变量中填写: {string.Join(", ", missingList)}");
+    }
 
 //���ӱ���·����ȡ֧��
 builder.Services.AddSingleton(new AppSettingsHelper(builder.Environment.ContentRootPath));
