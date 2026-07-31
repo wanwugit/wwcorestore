@@ -32,96 +32,112 @@ using Yitter.IdGenerator;
 
 var builder = WebApplication.CreateBuilder(args);
 
-//Ìí¼Ó±¾µØÂ·¾¶»ñÈ¡Ö§³Ö
+if (builder.Environment.IsProduction())
+{
+    var checks = new (string Key, string Label, int MinLen)[]
+    {
+        ("JwtConfig:SecretKey", "JwtConfig:SecretKey (éœ€ >=16 å­—ç¬¦)", 16),
+        ("JwtConfig:Issuer", "JwtConfig:Issuer", 1),
+        ("SwaggerConfig:UserName", "SwaggerConfig:UserName", 1),
+        ("SwaggerConfig:PassWord", "SwaggerConfig:PassWord", 1),
+    };
+    var missingList = checks
+        .Where(c => string.IsNullOrWhiteSpace(builder.Configuration[c.Key]) || builder.Configuration[c.Key]!.Length < c.MinLen)
+        .Select(c => c.Label).ToList();
+    if (missingList.Count > 0)
+        throw new InvalidOperationException($"ç”Ÿäº§çŽ¯å¢ƒç¼ºå°‘å…³é”®é…ç½®ï¼Œè¯·åœ¨ appsettings.json æˆ–çŽ¯å¢ƒå˜é‡ä¸­å¡«å†™: {string.Join(", ", missingList)}");
+}
+
+//ï¿½ï¿½ï¿½Ó±ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½È¡Ö§ï¿½ï¿½
 builder.Services.AddSingleton(new AppSettingsHelper(builder.Environment.ContentRootPath));
 builder.Services.AddSingleton(new LogLockHelper(builder.Environment.ContentRootPath));
 
-//Memory»º´æ
+//Memoryï¿½ï¿½ï¿½ï¿½
 builder.Services.AddMemoryCacheSetup();
-//Redis»º´æ
+//Redisï¿½ï¿½ï¿½ï¿½
 builder.Services.AddRedisCacheSetup();
 
-//Ìí¼ÓÊý¾Ý¿âÁ¬½ÓSqlSugar×¢ÈëÖ§³Ö
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¿ï¿½ï¿½ï¿½ï¿½ï¿½SqlSugar×¢ï¿½ï¿½Ö§ï¿½ï¿½
 builder.Services.AddSqlSugarSetup();
-//ÅäÖÃ¿çÓò£¨CORS£©
+//ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½CORSï¿½ï¿½
 builder.Services.AddCorsSetup();
 
-//Ìí¼ÓsessionÖ§³Ö(sessionÒÀÀµÓÚcache½øÐÐ´æ´¢)
+//ï¿½ï¿½ï¿½ï¿½sessionÖ§ï¿½ï¿½(sessionï¿½ï¿½ï¿½ï¿½ï¿½ï¿½cacheï¿½ï¿½ï¿½Ð´æ´¢)
 builder.Services.AddSession();
-// AutoMapperÖ§³Ö
-// AutoMapperÖ§³Ö£¨15°æ±¾ºóÆôÓÃÁËÊÚÈ¨Ä£Ê½£¬´ó¼Ò¿ÉÒÔÇ°Íùhttps://luckypennysoftware.com/ÉêÇë×Ô¼ºÃâ·ÑµÄkey£©
+// AutoMapperÖ§ï¿½ï¿½
+// AutoMapperÖ§ï¿½Ö£ï¿½15ï¿½æ±¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¨Ä£Ê½ï¿½ï¿½ï¿½ï¿½Ò¿ï¿½ï¿½ï¿½Ç°ï¿½ï¿½https://luckypennysoftware.com/ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½Ñµï¿½keyï¿½ï¿½
 //builder.Services.AddAutoMapper(typeof(AutoMapperConfiguration));
-builder.Services.AddAutoMapper(cfg => cfg.LicenseKey = "eyJhbGciOiJSUzI1NiIsImtpZCI6Ikx1Y2t5UGVubnlTb2Z0d2FyZUxpY2Vuc2VLZXkvYmJiMTNhY2I1OTkwNGQ4OWI0Y2IxYzg1ZjA4OGNjZjkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL2x1Y2t5cGVubnlzb2Z0d2FyZS5jb20iLCJhdWQiOiJMdWNreVBlbm55U29mdHdhcmUiLCJleHAiOiIxNzg3MjcwNDAwIiwiaWF0IjoiMTc1NTc2ODMyMSIsImFjY291bnRfaWQiOiIwMTk4Y2JmMWQyOTg3ODg2YTEwOTBjZTE2MWRlMTRkZSIsImN1c3RvbWVyX2lkIjoiY3RtXzAxazM1ejR4am1kMWJ4aHJjaHk5ajB2ZzhqIiwic3ViX2lkIjoiLSIsImVkaXRpb24iOiIwIiwidHlwZSI6IjIifQ.bE72RDllYcbEs2-c7sbhsEGeVSmSQ2nMjs9ayA_nIi1HeJ7wymNYG-l1EA_TK3Ys-dbkO6koKykalg-xXq-eEQsrLVYMgdXPjmAtEtqeyRJXx_optgy-tBJTjqgw01ZeaGVt2HCJwcShKDX5U4RbzQudwhy9vgonoBp6G0UQ56QZ2KZJAH0paIoBUxlFNjP7ZFMACwFn1-ovpfyFshIa_1orm2O2Yozlnx_WiaI06b2LpparXCdD1y-YFSzOOBYS3lTU6VUcb8vPm2VS_JRTmr3FDWnDFpWJ3KQ3u5UZntTAzgeK8PIkJQklkmpHR1zUyso1p1tOoUgXtW5yZPG86Q", typeof(AutoMapperConfiguration));
+builder.Services.AddAutoMapper(typeof(AutoMapperConfiguration));
 
-//Ê¹ÓÃ SignalR
+//Ê¹ï¿½ï¿½ SignalR
 builder.Services.AddSignalR();
 
-// ÒýÈëPayment ÒÀÀµ×¢Èë(Ö§¸¶±¦Ö§¸¶/Î¢ÐÅÖ§¸¶)
+// ï¿½ï¿½ï¿½ï¿½Payment ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½(Ö§ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ï¿½/Î¢ï¿½ï¿½Ö§ï¿½ï¿½)
 builder.Services.AddAlipay();
 builder.Services.AddWeChatPay();
 
-// ÔÚ appsettings.json ÖÐ ÅäÖÃÑ¡Ïî
+// ï¿½ï¿½ appsettings.json ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Ñ¡ï¿½ï¿½
 builder.Services.Configure<WeChatPayOptions>(builder.Configuration.GetSection("WeChatPay"));
 builder.Services.Configure<AlipayOptions>(builder.Configuration.GetSection("Alipay"));
 
-//×¢²á×Ô¶¨ÒåÎ¢ÐÅ½Ó¿ÚÅäÖÃÎÄ¼þ
+//×¢ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½Î¢ï¿½Å½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½
 builder.Services.Configure<CoreCms.Net.WeChat.Service.Options.WeChatOptions>(builder.Configuration.GetSection(nameof(CoreCms.Net.WeChat.Service.Options.WeChatOptions)));
 
-// ×¢Èë¹¤³§ HTTP ¿Í»§¶Ë
+// ×¢ï¿½ë¹¤ï¿½ï¿½ HTTP ï¿½Í»ï¿½ï¿½ï¿½
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<CoreCms.Net.WeChat.Service.HttpClients.IWeChatApiHttpClientFactory, CoreCms.Net.WeChat.Service.HttpClients.WeChatApiHttpClientFactory>();
 
-//Swagger½Ó¿ÚÎÄµµ×¢Èë
+//Swaggerï¿½Ó¿ï¿½ï¿½Äµï¿½×¢ï¿½ï¿½
 builder.Services.AddAdminSwaggerSetup();
 
-//ÅäÖÃÒ×ÁªÔÆ´òÓ¡»ú
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ´ï¿½Ó¡ï¿½ï¿½
 builder.Services.AddYiLianYunSetup();
 
-//jwtÊÚÈ¨Ö§³Ö×¢Èë
+//jwtï¿½ï¿½È¨Ö§ï¿½ï¿½×¢ï¿½ï¿½
 builder.Services.AddAuthorizationSetupForAdmin();
-//ÉÏÏÂÎÄ×¢Èë
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½
 builder.Services.AddHttpContextSetup();
 
-//·þÎñÅäÖÃÖÐ¼ÓÈëAutoFac¿ØÖÆÆ÷Ìæ»»¹æÔò¡£
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¼ï¿½ï¿½ï¿½AutoFacï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½æ»»ï¿½ï¿½ï¿½ï¿½
 builder.Services.Replace(ServiceDescriptor.Transient<IControllerActivator, ServiceBasedControllerActivator>());
 
-//×¢²ámvc£¬×¢²árazorÒýÇæÊÓÍ¼
+//×¢ï¿½ï¿½mvcï¿½ï¿½×¢ï¿½ï¿½razorï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¼
 builder.Services.AddMvc(options =>
 {
-    //ÊµÌåÑéÖ¤
+    //Êµï¿½ï¿½ï¿½ï¿½Ö¤
     options.Filters.Add<RequiredErrorForAdmin>();
-    //Òì³£´¦Àí
+    //ï¿½ì³£ï¿½ï¿½ï¿½ï¿½
     options.Filters.Add<GlobalExceptionsFilterForAdmin>();
-    //SwaggerÌÞ³ý²»ÐèÒª¼ÓÈëapiÕ¹Ê¾µÄÁÐ±í
+    //Swaggerï¿½Þ³ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½apiÕ¹Ê¾ï¿½ï¿½ï¿½Ð±ï¿½
     options.Conventions.Add(new ApiExplorerIgnores());
 
     options.EnableEndpointRouting = false;
 })
     .AddNewtonsoftJson(p =>
     {
-        //Êý¾Ý¸ñÊ½Ê××ÖÄ¸Ð¡Ð´ ²»Ê¹ÓÃÍÕ·å
+        //ï¿½ï¿½ï¿½Ý¸ï¿½Ê½ï¿½ï¿½ï¿½ï¿½Ä¸Ð¡Ð´ ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½Õ·ï¿½
         p.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
-        //²»Ê¹ÓÃÍÕ·åÑùÊ½µÄkey
+        //ï¿½ï¿½Ê¹ï¿½ï¿½ï¿½Õ·ï¿½ï¿½ï¿½Ê½ï¿½ï¿½key
         //p.SerializerSettings.ContractResolver = new DefaultContractResolver();
-        //ºöÂÔÑ­»·ÒýÓÃ
+        //ï¿½ï¿½ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         p.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
-        //ÉèÖÃÊ±¼ä¸ñÊ½
+        //ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½Ê½
         p.SerializerSettings.DateFormatString = "yyyy-MM-dd HH:mm:ss";
     });
 
 
-// Ñ©»¨Æ¯ÒÆËã·¨
-// ´´½¨ IdGeneratorOptions ¶ÔÏó£¬ÇëÔÚ¹¹Ôìº¯ÊýÖÐÊäÈë WorkerId£º
+// Ñ©ï¿½ï¿½Æ¯ï¿½ï¿½ï¿½ã·¨
+// ï¿½ï¿½ï¿½ï¿½ IdGeneratorOptions ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¹ï¿½ï¿½ìº¯ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ WorkerIdï¿½ï¿½
 var options = new IdGeneratorOptions(1);
-// ±£´æ²ÎÊý£¨±ØÐëµÄ²Ù×÷£¬·ñÔòÒÔÉÏÉèÖÃ¶¼²»ÄÜÉúÐ§£©£º
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½
 YitIdHelper.SetIdGenerator(options);
 
-#region AutoFac×¢²á============================================================================
+#region AutoFac×¢ï¿½ï¿½============================================================================
 
 builder.Host.UseServiceProviderFactory(new AutofacServiceProviderFactory());
 builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
 {
-    //»ñÈ¡ËùÓÐ¿ØÖÆÆ÷ÀàÐÍ²¢Ê¹ÓÃÊôÐÔ×¢Èë
+    //ï¿½ï¿½È¡ï¿½ï¿½ï¿½Ð¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í²ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½
     var controllerBaseType = typeof(ControllerBase);
     containerBuilder.RegisterAssemblyTypes(typeof(Program).Assembly)
         .Where(t => controllerBaseType.IsAssignableFrom(t) && t != controllerBaseType)
@@ -135,23 +151,23 @@ builder.Host.ConfigureContainer<ContainerBuilder>(containerBuilder =>
 
 var app = builder.Build();
 
-#region ½â¾öUbuntu Nginx ´úÀí²»ÄÜ»ñÈ¡IPÎÊÌâ
+#region ï¿½ï¿½ï¿½Ubuntu Nginx ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ü»ï¿½È¡IPï¿½ï¿½ï¿½ï¿½
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
 });
 #endregion
 
-// ¼ÇÂ¼ÇëÇóÓë·µ»ØÊý¾Ý (×¢Òâ¿ªÆôÈ¨ÏÞ£¬²»È»±¾µØÎÞ·¨Ð´Èë)
+// ï¿½ï¿½Â¼ï¿½ï¿½ï¿½ï¿½ï¿½ë·µï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ (×¢ï¿½â¿ªï¿½ï¿½È¨ï¿½Þ£ï¿½ï¿½ï¿½È»ï¿½ï¿½ï¿½ï¿½ï¿½Þ·ï¿½Ð´ï¿½ï¿½)
 app.UseRequestResponseLog();
-// ÓÃ»§·ÃÎÊ¼ÇÂ¼(±ØÐë·Åµ½Íâ²ã£¬²»È»Èç¹ûÓöµ½Òì³££¬»á±¨´í£¬ÒòÎª²»ÄÜ·µ»ØÁ÷)(×¢Òâ¿ªÆôÈ¨ÏÞ£¬²»È»±¾µØÎÞ·¨Ð´Èë)
+// ï¿½Ã»ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½Â¼(ï¿½ï¿½ï¿½ï¿½Åµï¿½ï¿½ï¿½ã£¬ï¿½ï¿½È»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ì³£ï¿½ï¿½ï¿½á±¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Ü·ï¿½ï¿½ï¿½ï¿½ï¿½)(×¢ï¿½â¿ªï¿½ï¿½È¨ï¿½Þ£ï¿½ï¿½ï¿½È»ï¿½ï¿½ï¿½ï¿½ï¿½Þ·ï¿½Ð´ï¿½ï¿½)
 app.UseRecordAccessLogsMildd();
-// ¼ÇÂ¼ipÇëÇó (×¢Òâ¿ªÆôÈ¨ÏÞ£¬²»È»±¾µØÎÞ·¨Ð´Èë)
+// ï¿½ï¿½Â¼ipï¿½ï¿½ï¿½ï¿½ (×¢ï¿½â¿ªï¿½ï¿½È¨ï¿½Þ£ï¿½ï¿½ï¿½È»ï¿½ï¿½ï¿½ï¿½ï¿½Þ·ï¿½Ð´ï¿½ï¿½)
 app.UseIpLogMildd();
 
 app.UseSwagger().UseSwaggerUI(c =>
 {
-    //¸ù¾Ý°æ±¾Ãû³Æµ¹Ðò ±éÀúÕ¹Ê¾
+    //ï¿½ï¿½ï¿½Ý°æ±¾ï¿½ï¿½ï¿½Æµï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½Õ¹Ê¾
     typeof(CustomApiVersion.ApiVersions).GetEnumNames().OrderByDescending(e => e).ToList().ForEach(
         version =>
         {
@@ -160,12 +176,12 @@ app.UseSwagger().UseSwaggerUI(c =>
     c.RoutePrefix = "doc";
 });
 
-//Ê¹ÓÃ Session
+//Ê¹ï¿½ï¿½ Session
 app.UseSession();
 
 if (app.Environment.IsDevelopment())
 {
-    // ÔÚ¿ª·¢»·¾³ÖÐ£¬Ê¹ÓÃÒì³£Ò³Ãæ£¬ÕâÑù¿ÉÒÔ±©Â¶´íÎó¶ÑÕ»ÐÅÏ¢£¬ËùÒÔ²»Òª·ÅÔÚÉú²ú»·¾³¡£
+    // ï¿½Ú¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£ï¿½Ê¹ï¿½ï¿½ï¿½ì³£Ò³ï¿½æ£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½Â¶ï¿½ï¿½ï¿½ï¿½ï¿½Õ»ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½Ô²ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     app.UseDeveloperExceptionPage();
 }
 else
@@ -175,29 +191,29 @@ else
     app.UseHsts();
 }
 
-// CORS¿çÓò
+// CORSï¿½ï¿½ï¿½ï¿½
 app.UseCors(AppSettingsConstVars.CorsPolicyName);
-// Ìø×ªhttps
+// ï¿½ï¿½×ªhttps
 //app.UseHttpsRedirection();
-// Ê¹ÓÃ¾²Ì¬ÎÄ¼þ
+// Ê¹ï¿½Ã¾ï¿½Ì¬ï¿½Ä¼ï¿½
 app.UseStaticFiles();
-// Ê¹ÓÃcookie
+// Ê¹ï¿½ï¿½cookie
 app.UseCookiePolicy();
-// ·µ»Ø´íÎóÂë
+// ï¿½ï¿½ï¿½Ø´ï¿½ï¿½ï¿½ï¿½ï¿½
 app.UseStatusCodePages();
 // Routing
 app.UseRouting();
-// ÏÈ¿ªÆôÈÏÖ¤
+// ï¿½È¿ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤
 app.UseAuthentication();
-// È»ºóÊÇÊÚÈ¨ÖÐ¼ä¼þ
+// È»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¨ï¿½Ð¼ï¿½ï¿½
 app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
-//ÉèÖÃÄ¬ÈÏÆðÊ¼Ò³£¨Èçdefault.html£©
-//´Ë´¦µÄÂ·¾¶ÊÇÏà¶ÔÓÚwwwrootÎÄ¼þ¼ÐµÄÏà¶ÔÂ·¾¶
+//ï¿½ï¿½ï¿½ï¿½Ä¬ï¿½ï¿½ï¿½ï¿½Ê¼Ò³ï¿½ï¿½ï¿½ï¿½default.htmlï¿½ï¿½
+//ï¿½Ë´ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½wwwrootï¿½Ä¼ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½Â·ï¿½ï¿½
 var defaultFilesOptions = new DefaultFilesOptions();
 defaultFilesOptions.DefaultFileNames.Clear();
 defaultFilesOptions.DefaultFileNames.Add("index.html");
@@ -206,16 +222,16 @@ app.UseStaticFiles();
 
 try
 {
-    //È·±£NLog.configÖÐÁ¬½Ó×Ö·û´®Óëappsettings.jsonÖÐÍ¬²½
+    //È·ï¿½ï¿½NLog.configï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½appsettings.jsonï¿½ï¿½Í¬ï¿½ï¿½
     NLogUtil.EnsureNlogConfig("NLog.config");
-    //ÆäËûÏîÄ¿Æô¶¯Ê±ÐèÒª×öµÄÊÂÇé
-    NLogUtil.WriteAll(NLog.LogLevel.Trace, LogType.ApiRequest, "½Ó¿ÚÆô¶¯", "½Ó¿ÚÆô¶¯³É¹¦");
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    NLogUtil.WriteAll(NLog.LogLevel.Trace, LogType.ApiRequest, "ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½", "ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¹ï¿½");
 
     app.Run();
 }
 catch (Exception ex)
 {
-    //Ê¹ÓÃNlogÐ´µ½±¾µØÈÕÖ¾ÎÄ¼þ£¨ÍòÒ»Êý¾Ý¿âÃ»´´½¨/Á¬½Ó³É¹¦£©
-    NLogUtil.WriteFileLog(NLog.LogLevel.Error, LogType.ApiRequest, "½Ó¿ÚÆô¶¯", "³õÊ¼»¯Êý¾ÝÒì³£", ex);
+    //Ê¹ï¿½ï¿½NlogÐ´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ý¿ï¿½Ã»ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½Ó³É¹ï¿½ï¿½ï¿½
+    NLogUtil.WriteFileLog(NLog.LogLevel.Error, LogType.ApiRequest, "ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½", "ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ì³£", ex);
     throw;
 }

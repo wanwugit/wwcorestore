@@ -33,4 +33,7 @@
     <Project Path="CoreCms.Net.Web.Admin/CoreCms.Net.Web.Admin.csproj" />
     <Project Path="CoreCms.Net.Web.WebApi/CoreCms.Net.Web.WebApi.csproj" />
   </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="CoreCms.Net.Tests/CoreCms.Net.Tests.csproj" />
+  </Folder>
 </Solution>

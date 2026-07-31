@@ -1,12 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="NPOI" Version="2.7.5" />
+    <!-- 安全修复: 覆盖 NPOI 传递的 System.Security.Cryptography.Xml 8.0.2 漏洞 (CVE-2026-33116) -->
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="8.0.3" />
     <PackageReference Include="ToolGood.Words" Version="3.1.0.2" />
   </ItemGroup>
 
