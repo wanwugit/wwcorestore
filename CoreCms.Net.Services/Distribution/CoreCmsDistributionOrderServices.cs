@@ -58,6 +58,13 @@ namespace CoreCms.Net.Services
             _unitOfWork = unitOfWork;
         }
 
+        private static bool CommissionSettleEnabled()
+        {
+            var v = AppSettingsHelper.GetContent("Distribution", "CommissionSettleEnabled");
+            var s = v?.Trim();
+            return string.Equals(s, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(s, "true", StringComparison.OrdinalIgnoreCase);
+        }
+
         #region 实现重写增删改查操作==========================================================
 
         /// <summary>
@@ -141,6 +148,13 @@ namespace CoreCms.Net.Services
         public async Task<WebApiCallBack> AddData(CoreCmsOrder order)
         {
             var jm = new WebApiCallBack();
+
+            if (!CommissionSettleEnabled())
+            {
+                jm.status = true;
+                jm.msg = "降级模式：分销佣金结算已禁用";
+                return jm;
+            }
 
             //查询获取几级返利
             var user = await _userServices.QueryByClauseAsync(p => p.id == order.userId);
@@ -314,6 +328,13 @@ namespace CoreCms.Net.Services
         {
             var jm = new WebApiCallBack();
 
+            if (!CommissionSettleEnabled())
+            {
+                jm.status = true;
+                jm.msg = "降级模式：分销佣金结算已禁用";
+                return jm;
+            }
+
             var order = await _orderServices.QueryByClauseAsync(p => p.orderId == orderId && p.status == (int)GlobalEnumVars.OrderStatus.Complete);
             if (order == null)
             {
@@ -354,6 +375,13 @@ namespace CoreCms.Net.Services
         public async Task<WebApiCallBack> CancleOrderByOrderId(string orderId)
         {
             var jm = new WebApiCallBack();
+
+            if (!CommissionSettleEnabled())
+            {
+                jm.status = true;
+                jm.msg = "降级模式：分销佣金退款追佣已禁用";
+                return jm;
+            }
 
             var res = await _dal.UpdateAsync(p => new CoreCmsDistributionOrder() { isSettlement = (int)GlobalEnumVars.DistributionOrderSettlementStatus.SettlementCancel },
                 p => p.orderId == orderId && p.isSettlement == (int)GlobalEnumVars.DistributionOrderSettlementStatus.SettlementNo);
