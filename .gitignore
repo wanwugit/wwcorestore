@@ -370,3 +370,7 @@ node_modules/
 unpackage/
 .DS_Store
 CoreCms.Net.Web.Admin/wwwroot/upload
+
+# XML 文档产物（doc.xml 在 Debug 经 DocumentationFile 生成，构建产物，不纳入版本控制）
+Doc.xml
+doc.xml
