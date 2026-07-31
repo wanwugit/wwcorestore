@@ -87,6 +87,30 @@ namespace CoreCms.Net.Model.Entities
         [SugarColumn(ColumnDescription = "余额")]
         [Required(ErrorMessage = "请输入{0}")]
         public System.Decimal balance { get; set; }
+
+        /// <summary>
+        /// 佣金可提现余额
+        /// </summary>
+        [Display(Name = "佣金可提现余额")]
+        [SugarColumn(ColumnDescription = "佣金可提现余额")]
+        [Required(ErrorMessage = "请输入{0}")]
+        public System.Decimal commissionAvailable { get; set; }
+
+        /// <summary>
+        /// 佣金冻结余额
+        /// </summary>
+        [Display(Name = "佣金冻结余额")]
+        [SugarColumn(ColumnDescription = "佣金冻结余额")]
+        [Required(ErrorMessage = "请输入{0}")]
+        public System.Decimal commissionFrozen { get; set; }
+
+        /// <summary>
+        /// 佣金负债
+        /// </summary>
+        [Display(Name = "佣金负债")]
+        [SugarColumn(ColumnDescription = "佣金负债")]
+        [Required(ErrorMessage = "请输入{0}")]
+        public System.Decimal commissionDebt { get; set; }
         /// <summary>
         /// 积分
         /// </summary>

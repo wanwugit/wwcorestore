@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
+    <!-- 安全修复: 覆盖 SQLitePCLRaw 传递依赖漏洞 GHSA-2m69-gcr7-jv3q -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.11" />
+    <PackageReference Include="xunit" Version="2.5.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CoreCms.Net.Model\CoreCms.Net.Model.csproj" />
+    <ProjectReference Include="..\CoreCms.Net.IRepository\CoreCms.Net.IRepository.csproj" />
+    <ProjectReference Include="..\CoreCms.Net.IServices\CoreCms.Net.IServices.csproj" />
+    <ProjectReference Include="..\CoreCms.Net.Repository\CoreCms.Net.Repository.csproj" />
+    <ProjectReference Include="..\CoreCms.Net.Services\CoreCms.Net.Services.csproj" />
+    <ProjectReference Include="..\CoreCms.Net.Core\CoreCms.Net.Core.csproj" />
+    <ProjectReference Include="..\CoreCms.Net.Configuration\CoreCms.Net.Configuration.csproj" />
+    <ProjectReference Include="..\CoreCms.Net.Loging\CoreCms.Net.Loging.csproj" />
+    <ProjectReference Include="..\CoreCms.Net.Caching\CoreCms.Net.Caching.csproj" />
+    <ProjectReference Include="..\CoreCms.Net.Utility\CoreCms.Net.Utility.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

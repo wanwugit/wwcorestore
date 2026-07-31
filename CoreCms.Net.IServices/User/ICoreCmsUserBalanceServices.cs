@@ -13,6 +13,7 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using CoreCms.Net.Model.Entities;
 using CoreCms.Net.Model.ViewModels.Basics;
+using CoreCms.Net.Model.ViewModels.Financial;
 using CoreCms.Net.Model.ViewModels.UI;
 using SqlSugar;
 
@@ -33,6 +34,13 @@ namespace CoreCms.Net.IServices
         /// <param name="cateMoney">服务费金额 (提现)</param>
         /// <returns></returns>
         Task<WebApiCallBack> Change(int userId, int type, decimal money, string sourceId = "", decimal cateMoney = 0);
+
+        /// <summary>
+        ///     安全资金变更（事务 + 原子更新 + 幂等）
+        /// </summary>
+        /// <param name="request">资金变更请求</param>
+        /// <returns>资金变更结果</returns>
+        Task<BalanceChangeResult> ChangeAsync(BalanceChangeRequest request);
 
 
         /// <summary>

@@ -65,7 +65,7 @@ namespace CoreCms.Net.Model.Entities
         /// </summary>
         [Display(Name = "资源id")]
         [SugarColumn(ColumnDescription = "资源id", IsNullable = true)]
-        [StringLength(20, ErrorMessage = "【{0}】不能超过{1}字符长度")]
+        [StringLength(50, ErrorMessage = "【{0}】不能超过{1}字符长度")]
         public System.String sourceId { get; set; }
         /// <summary>
         /// 描述
@@ -81,5 +81,44 @@ namespace CoreCms.Net.Model.Entities
         [SugarColumn(ColumnDescription = "创建时间")]
         [Required(ErrorMessage = "请输入{0}")]
         public System.DateTime createTime { get; set; }
+
+        // ===== M4 新增字段：资金流水幂等与账户类型 =====
+
+        /// <summary>
+        /// 账户类型 0=Balance 1=CommissionAvailable 2=CommissionFrozen 3=CommissionDebt
+        /// </summary>
+        [Display(Name = "账户类型")]
+        [SugarColumn(ColumnDescription = "账户类型", IsNullable = true)]
+        public System.Int32? accountType { get; set; }
+
+        /// <summary>
+        /// 操作类型（如 Settle、Freeze、Unfreeze、Cancel、Clawback 等）
+        /// </summary>
+        [Display(Name = "操作类型")]
+        [SugarColumn(ColumnDescription = "操作类型", IsNullable = true)]
+        [StringLength(30, ErrorMessage = "【{0}】不能超过{1}字符长度")]
+        public System.String operationType { get; set; }
+
+        /// <summary>
+        /// 变更前金额
+        /// </summary>
+        [Display(Name = "变更前金额")]
+        [SugarColumn(ColumnDescription = "变更前金额", IsNullable = true)]
+        public System.Decimal? beforeAmount { get; set; }
+
+        /// <summary>
+        /// 变更后金额
+        /// </summary>
+        [Display(Name = "变更后金额")]
+        [SugarColumn(ColumnDescription = "变更后金额", IsNullable = true)]
+        public System.Decimal? afterAmount { get; set; }
+
+        /// <summary>
+        /// 幂等键，非 NULL 值唯一
+        /// </summary>
+        [Display(Name = "幂等键")]
+        [SugarColumn(ColumnDescription = "幂等键", IsNullable = true)]
+        [StringLength(100, ErrorMessage = "【{0}】不能超过{1}字符长度")]
+        public System.String idempotencyKey { get; set; }
     }
 }
