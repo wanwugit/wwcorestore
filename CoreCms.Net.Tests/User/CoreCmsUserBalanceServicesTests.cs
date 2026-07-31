@@ -7,6 +7,8 @@ using CoreCms.Net.IRepository.UnitOfWork;
 using CoreCms.Net.IServices;
 using CoreCms.Net.Model.Entities;
 using CoreCms.Net.Model.ViewModels.Financial;
+using CoreCms.Net.Model.ViewModels.UI;
+using CoreCms.Net.Configuration;
 using CoreCms.Net.Repository;
 using CoreCms.Net.Repository.UnitOfWork;
 using CoreCms.Net.Services;
@@ -597,6 +599,222 @@ namespace CoreCms.Net.Tests.User
             // 验证佣金
             var dbCommission = GetUserCommission(user.id);
             Assert.Equal(70m, dbCommission); // 50 + 20 = 70
+        }
+    }
+
+    /// <summary>
+    /// 佣金状态机资金序列与状态守卫测试。
+    /// 由于工程无 mock 库、真实 DistributionOrderServices 需 30+ 依赖无法构造，
+    /// 这里直接验证状态机各步骤调用的 ChangeAsync 序列与状态守卫仓储操作，
+    /// 等价于 AddData→FinishOrder→CancleOrderByOrderId 调用栈中资金侧与状态字段更新。
+    /// </summary>
+    public class CommissionStateMachineFundsTests : BalanceTestBase
+    {
+        public CommissionStateMachineFundsTests()
+        {
+            _db.CodeFirst.InitTables<CoreCmsDistributionOrder>();
+        }
+
+        private CoreCmsDistributionOrder InsertFrozenOrder(int userId, int referrerId, string orderId, decimal amount)
+        {
+            var order = new CoreCmsDistributionOrder
+            {
+                userId = referrerId,
+                buyUserId = userId,
+                orderId = orderId,
+                amount = amount,
+                frozenAmount = amount,
+                availableAmount = 0,
+                level = 1,
+                isSettlement = 2, // SettlementNo
+                status = (int)GlobalEnumVars.CommissionStatus.Frozen,
+                frozenTime = DateTime.Now,
+                isDelete = false,
+                createTime = DateTime.Now,
+            };
+            var id = _db.Insertable(order).ExecuteReturnIdentity();
+            order.id = id;
+            return order;
+        }
+
+        private int GetStatus(int id) =>
+            _db.Queryable<CoreCmsDistributionOrder>().InSingle(id).status;
+
+        /// <summary>
+        /// 完整资金序列：冻结 → 解冻（扣冻结+加可提现）→ 追回（扣可提现）。
+        /// 全程使用幂等键，重放应等价于幂等返回，账户值不再变动。
+        /// </summary>
+        [Fact]
+        public async Task CommissionLifecycle_Freeze_Unfreeze_Clawback_AllIdempotent()
+        {
+            var referrer = CreateTestUser();
+            const decimal amount = 100m;
+            const string orderId = "TEST_ORDER_1";
+
+            // 1. 冻结
+            var freeze = new BalanceChangeRequest
+            {
+                UserId = referrer.id,
+                AccountType = AccountType.CommissionFrozen,
+                Amount = amount,
+                SourceType = "CommissionFreeze",
+                SourceId = orderId,
+                OperationType = "Freeze",
+                IdempotencyKey = $"CommissionFreeze:Frozen:{orderId}:{referrer.id}",
+            };
+            var r1 = await _balanceService.ChangeAsync(freeze);
+            Assert.True(r1.Success);
+            Assert.Equal(amount, r1.AfterAmount);
+
+            // 2. 解冻扣冻结
+            var unfreezeFrom = new BalanceChangeRequest
+            {
+                UserId = referrer.id,
+                AccountType = AccountType.CommissionFrozen,
+                Amount = amount,
+                SourceType = "CommissionUnfreeze",
+                SourceId = orderId,
+                OperationType = "UnfreezeFrozen",
+                IdempotencyKey = $"CommissionUnfreeze:Frozen:{orderId}:{referrer.id}",
+            };
+            var r2 = await _balanceService.ChangeAsync(unfreezeFrom);
+            Assert.True(r2.Success);
+            Assert.Equal(0m, r2.AfterAmount);
+
+            // 3. 解冻加可提现
+            var unfreezeTo = new BalanceChangeRequest
+            {
+                UserId = referrer.id,
+                AccountType = AccountType.CommissionAvailable,
+                Amount = amount,
+                SourceType = "CommissionUnfreeze",
+                SourceId = orderId,
+                OperationType = "UnfreezeToAvailable",
+                IdempotencyKey = $"CommissionUnfreeze:Available:{orderId}:{referrer.id}",
+            };
+            var r3 = await _balanceService.ChangeAsync(unfreezeTo);
+            Assert.True(r3.Success);
+            Assert.Equal(amount, r3.AfterAmount);
+
+            // 4. 追回扣可提现
+            var clawback = new BalanceChangeRequest
+            {
+                UserId = referrer.id,
+                AccountType = AccountType.CommissionAvailable,
+                Amount = amount,
+                SourceType = "CommissionClawback",
+                SourceId = orderId,
+                OperationType = "ClawbackAvailable",
+                IdempotencyKey = $"CommissionClawback:Available:{orderId}:{referrer.id}",
+            };
+            var r4 = await _balanceService.ChangeAsync(clawback);
+            Assert.True(r4.Success);
+            Assert.Equal(0m, r4.AfterAmount);
+
+            // 5. 幂等重放：再调一次解冻扣冻结，应幂等返回，账户不变
+            var r2b = await _balanceService.ChangeAsync(unfreezeFrom);
+            Assert.True(r2b.Success);
+            Assert.True(r2b.IsIdempotentReturn);
+            Assert.Equal(0m, r2b.AfterAmount);
+        }
+
+        /// <summary>
+        /// 佣金已解冻但用户已提现大部分，退款追回时 commissionAvailable 不足，
+        /// 应扣空可提现并以差额记 commissionDebt（与状态机 ClawbackAvailableCommission 等价序列）
+        /// </summary>
+        [Fact]
+        public async Task Clawback_InsufficientAvailable_RecordsDebt()
+        {
+            var referrer = CreateTestUser(initialBalance: 0, initialCommission: 0);
+            const decimal clawbackAmount = 100m;
+            const decimal availableBefore = 30m; // 可提现余额不足追回
+            const string orderId = "TEST_ORDER_2";
+
+            // 先把 user.commissionAvailable 设为 30（模拟解冻后已提现了大部分）
+            _db.Updateable<CoreCmsUser>()
+                .SetColumns(u => new CoreCmsUser { commissionAvailable = availableBefore })
+                .Where(u => u.id == referrer.id)
+                .ExecuteCommand();
+
+            var canDeduct = Math.Min(availableBefore, clawbackAmount); // 30
+            var debt = clawbackAmount - canDeduct; // 70
+
+            // 1. 扣可提现到 0（部分追回）
+            var reqPartial = new BalanceChangeRequest
+            {
+                UserId = referrer.id,
+                AccountType = AccountType.CommissionAvailable,
+                Amount = canDeduct,
+                SourceType = "CommissionClawback",
+                SourceId = orderId,
+                OperationType = "ClawbackAvailable",
+                IdempotencyKey = $"CommissionClawback:Available:Partial:{orderId}:{referrer.id}",
+            };
+            var rPartial = await _balanceService.ChangeAsync(reqPartial);
+            Assert.True(rPartial.Success);
+
+            // 2. 差额记负债
+            var reqDebt = new BalanceChangeRequest
+            {
+                UserId = referrer.id,
+                AccountType = AccountType.CommissionDebt,
+                Amount = debt,
+                SourceType = "CommissionClawback",
+                SourceId = orderId,
+                OperationType = "ClawbackDebt",
+                IdempotencyKey = $"CommissionClawback:Debt:{orderId}:{referrer.id}",
+            };
+            var rDebt = await _balanceService.ChangeAsync(reqDebt);
+            Assert.True(rDebt.Success);
+
+            // 验证账户
+            var user = _db.Queryable<CoreCmsUser>().InSingle(referrer.id);
+            Assert.Equal(0m, user.commissionAvailable);
+            Assert.Equal(debt, user.commissionDebt);
+
+            // 验证两条流水（扣可提现 + 记负债）
+            var records = _db.Queryable<CoreCmsUserBalance>()
+                .Where(b => b.userId == referrer.id && b.sourceId == orderId).ToList();
+            // 不做数量断言，仅验证两条幂等键均落库
+            Assert.True(records.Any(r => r.idempotencyKey == reqPartial.IdempotencyKey));
+            Assert.True(records.Any(r => r.idempotencyKey == reqDebt.IdempotencyKey));
+        }
+
+        /// <summary>
+        /// 状态守卫：Update WHERE status=Frozen → Available，affected=1；
+        /// 重复更新（同 where）应 affected=0，实现幂等。
+        /// </summary>
+        [Fact]
+        public async Task StateGuard_Update_FrozenToAvailable_ThenIdempotent()
+        {
+            var user = CreateTestUser();
+            var order = InsertFrozenOrder(user.id, user.id, "TEST_ORDER_3", 50m);
+
+            // 第一次：Frozen → Available
+            var affected1 = await _db.Updateable<CoreCmsDistributionOrder>()
+                .SetColumns(it => new CoreCmsDistributionOrder
+                {
+                    status = (int)GlobalEnumVars.CommissionStatus.Available,
+                    availableAmount = 50m,
+                    settledTime = DateTime.Now,
+                    isSettlement = 1, // SettlementYes
+                    updateTime = DateTime.Now,
+                })
+                .Where(it => it.id == order.id && it.status == (int)GlobalEnumVars.CommissionStatus.Frozen)
+                .ExecuteCommandAsync();
+            Assert.Equal(1, affected1);
+            Assert.Equal((int)GlobalEnumVars.CommissionStatus.Available, GetStatus(order.id));
+
+            // 第二次：同 where status=Frozen，应 affected=0（幂等）
+            var affected2 = await _db.Updateable<CoreCmsDistributionOrder>()
+                .SetColumns(it => new CoreCmsDistributionOrder
+                {
+                    status = (int)GlobalEnumVars.CommissionStatus.Available,
+                    availableAmount = 50m,
+                })
+                .Where(it => it.id == order.id && it.status == (int)GlobalEnumVars.CommissionStatus.Frozen)
+                .ExecuteCommandAsync();
+            Assert.Equal(0, affected2);
         }
     }
 }

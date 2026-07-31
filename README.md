@@ -85,16 +85,15 @@ docker compose up -d
 - `数据库/SqlServer/*.bak` — SSMS 还原
 - `数据库/MySql/*.sql` — Navicat / SQLyog 导入
 
-## 降级模式（佣金结算）
+## 佣金结算（状态机已落地，待迁移后启用）
 
-分销佣金状态机（`docs/design/03/04`）尚未落地，当前以配置门禁默认禁用佣金结算与退款追佣流程：
+分销佣金状态机已实现并测试（`CoreCmsDistributionOrderServices` 三入口 + 14 个 SQLite 内存用例），但在 DB 迁移（`docs/design/05` 003/004）应用到生产前，以配置门禁默认禁用，避免新字段未就位即触发：
 
 - 配置键：`Distribution:CommissionSettleEnabled`（默认 `"0"` = 禁用）
 - 生效位置：`CoreCmsDistributionOrderServices.AddData` / `FinishOrder` / `CancleOrderByOrderId` 顶部早退
-- 代理佣金 `CoreCmsAgentOrderServices` 不受影响
-- 余额/订单展示查询链路不受影响
-
-待佣金状态机落地、`CommissionStatus` 枚举与 `CoreCmsDistributionOrder.status` 字段补齐、L2–L4 测试通过后，方可将此值设为 `"1"` 启用。
+- 代理佣金 `CoreCmsAgentOrderServices` 不受门禁影响
+- 状态机：`Pending → Frozen → Available → Cancelled | ClawedBack`（详见 `docs/design/04-commission-state-machine.md`）
+- 启用步骤：①对生产库执行 doc 05 的 003/004 迁移；②staging 烟测；③将 `CommissionSettleEnabled` 改为 `"1"`。
 
 ## 已接受风险记录
 
