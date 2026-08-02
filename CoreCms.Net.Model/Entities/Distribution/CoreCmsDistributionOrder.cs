@@ -129,6 +129,13 @@ namespace CoreCms.Net.Model.Entities
         public System.DateTime? frozenTime { get; set; }
 
         /// <summary>
+        /// 预计结算时间（订单完成 + 售后保护期，到期后由 Hangfire 定时任务结算）
+        /// </summary>
+        [Display(Name = "预计结算时间")]
+        [SugarColumn(ColumnDescription = "预计结算时间", IsNullable = true)]
+        public System.DateTime? expectedSettleTime { get; set; }
+
+        /// <summary>
         /// 实际结算时间
         /// </summary>
         [Display(Name = "实际结算时间")]

@@ -65,6 +65,9 @@ namespace CoreCms.Net.Task
             //定时刷新获取微信AccessToken
             RecurringJob.AddOrUpdate<RefreshWeChatAccessTokenJob>(s => s.Execute(), "0 0/4 * * * ? ", TimeZoneInfo.Local); // 每2分钟刷新获取微信AccessToken
 
+            //佣金定时结算（每小时扫一次：status=Frozen 且 expectedSettleTime 到期，无进行中售后则解冻入账）
+            RecurringJob.AddOrUpdate<CommissionSettlementJob>(s => s.Execute(), "0 0 0/1 * * ? ", TimeZoneInfo.Local);
+
         }
 
         #endregion

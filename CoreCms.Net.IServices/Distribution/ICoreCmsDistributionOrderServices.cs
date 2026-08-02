@@ -66,6 +66,14 @@ namespace CoreCms.Net.IServices
         /// <returns></returns>
         Task<WebApiCallBack> CancleOrderByOrderId(string orderId);
 
+        /// <summary>
+        ///     定时结算到期佣金：扫描 status=Frozen 且 expectedSettleTime &lt;= now 的佣金，
+        ///     校验该订单无进行中售后后，逐笔调用 SettleSingleCommission。
+        ///     由 Hangfire 定时任务驱动（见 CommissionSettlementJob）。
+        /// </summary>
+        /// <returns>本次扫描结算笔数</returns>
+        Task<int> SettleDueCommissions();
+
 
         /// <summary>
         ///     获取下级推广订单数量

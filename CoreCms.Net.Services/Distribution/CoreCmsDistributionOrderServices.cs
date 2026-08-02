@@ -42,9 +42,10 @@ namespace CoreCms.Net.Services
         private readonly ICoreCmsProductsServices _productsServices;
         private readonly ICoreCmsUserBalanceServices _balanceServices;
         private readonly ICoreCmsGoodsServices _goodsServices;
+        private readonly ICoreCmsBillAftersalesServices _aftersalesServices;
 
         private readonly IUnitOfWork _unitOfWork;
-        public CoreCmsDistributionOrderServices(IUnitOfWork unitOfWork, ICoreCmsDistributionOrderRepository dal, ICoreCmsDistributionServices distributionServices, ICoreCmsUserBalanceServices balanceServices, ICoreCmsOrderServices orderServices, ICoreCmsUserServices userServices, ICoreCmsOrderItemServices orderItemServices, ICoreCmsProductsDistributionServices productsDistributionServices, ICoreCmsProductsServices productsServices, ICoreCmsGoodsServices goodsServices)
+        public CoreCmsDistributionOrderServices(IUnitOfWork unitOfWork, ICoreCmsDistributionOrderRepository dal, ICoreCmsDistributionServices distributionServices, ICoreCmsUserBalanceServices balanceServices, ICoreCmsOrderServices orderServices, ICoreCmsUserServices userServices, ICoreCmsOrderItemServices orderItemServices, ICoreCmsProductsDistributionServices productsDistributionServices, ICoreCmsProductsServices productsServices, ICoreCmsGoodsServices goodsServices, ICoreCmsBillAftersalesServices aftersalesServices)
         {
             this._dal = dal;
             _distributionServices = distributionServices;
@@ -55,6 +56,7 @@ namespace CoreCms.Net.Services
             _productsDistributionServices = productsDistributionServices;
             _productsServices = productsServices;
             _goodsServices = goodsServices;
+            _aftersalesServices = aftersalesServices;
             base.BaseDal = dal;
             _unitOfWork = unitOfWork;
         }
@@ -68,6 +70,16 @@ namespace CoreCms.Net.Services
             var v = AppSettingsHelper.GetContent("Distribution", "CommissionSettleEnabled");
             var s = v?.Trim();
             return string.Equals(s, "1", StringComparison.OrdinalIgnoreCase) || string.Equals(s, "true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// 售后保护期天数。默认读 Distribution:CommissionProtectionPeriodDays（默认 "0"=立刻结算，等价于旧行为）。
+        /// 测试子类可 override 以绕过 appsettings 依赖。&gt;=0 即合法。
+        /// </summary>
+        protected virtual int CommissionProtectionPeriodDays()
+        {
+            var v = AppSettingsHelper.GetContent("Distribution", "CommissionProtectionPeriodDays");
+            return int.TryParse(v?.Trim(), out var n) && n >= 0 ? n : 0;
         }
 
         #region 实现重写增删改查操作==========================================================
@@ -310,6 +322,27 @@ namespace CoreCms.Net.Services
                 return jm;
             }
 
+            var protectionDays = CommissionProtectionPeriodDays();
+            if (protectionDays > 0)
+            {
+                // 保护期模式：本次只设 expectedSettleTime = now + 保护期，留待 Hangfire 定时任务到期结算
+                var expectedSettleTime = DateTime.Now.AddDays(protectionDays);
+                foreach (var item in list)
+                {
+                    await _dal.UpdateAsync(
+                        p => new CoreCmsDistributionOrder
+                        {
+                            expectedSettleTime = expectedSettleTime,
+                            updateTime = DateTime.Now
+                        },
+                        p => p.id == item.id
+                          && p.status == (int)GlobalEnumVars.CommissionStatus.Frozen);
+                }
+                jm.status = true;
+                jm.msg = $"已设预计结算时间 {expectedSettleTime:yyyy-MM-dd HH:mm}，等待到期由定时任务结算";
+                return jm;
+            }
+
             foreach (var item in list)
             {
                 await SettleSingleCommission(item);
@@ -381,6 +414,42 @@ namespace CoreCms.Net.Services
                 },
                 p => p.id == commission.id
                   && p.status == (int)GlobalEnumVars.CommissionStatus.Frozen);
+        }
+        #endregion
+
+        #region 定时结算到期佣金
+        /// <summary>
+        /// 定时结算到期佣金：扫描 status=Frozen 且 expectedSettleTime != null 且 &lt;= now 的佣金，
+        /// 校验该订单无进行中售后后逐笔调 <see cref="SettleSingleCommission"/>。
+        /// 由 Hangfire 定时任务 <c>CommissionSettlementJob</c> 驱动。
+        /// 幂等保证：SettleSingleCommission 内部状态守卫 + 幂等键，重复调度不会重复入账。
+        /// </summary>
+        public async Task<int> SettleDueCommissions()
+        {
+            if (!CommissionSettleEnabled()) return 0;
+
+            var now = DateTime.Now;
+            var candidates = await _dal.QueryListByClauseAsync(
+                p => p.status == (int)GlobalEnumVars.CommissionStatus.Frozen
+                  && p.expectedSettleTime != null
+                  && p.expectedSettleTime <= now
+                  && !p.isDelete);
+
+            if (candidates == null || !candidates.Any()) return 0;
+
+            var settledCount = 0;
+            foreach (var item in candidates)
+            {
+                // 该订单有进行中售后则暂不结算
+                var hasActiveAftersales = await _aftersalesServices.ExistsAsync(
+                    p => p.orderId == item.orderId
+                      && p.status == (int)GlobalEnumVars.BillAftersalesStatus.WaitAudit);
+                if (hasActiveAftersales) continue;
+
+                await SettleSingleCommission(item);
+                settledCount++;
+            }
+            return settledCount;
         }
         #endregion
 

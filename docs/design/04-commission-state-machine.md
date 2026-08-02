@@ -278,10 +278,14 @@ private async Task SettleSingleCommission(CoreCmsDistributionOrder commission)
   → 记录推荐关系快照
 
 订单完成（确认收货）
-  → 设置 expectedSettleTime = 现在 + 售后保护期（如7天）
+  → 若 CommissionProtectionPeriodDays = 0（默认）：
+      FinishOrder 立即 Frozen → Available，资金即落账（旧行为）
+  → 若 CommissionProtectionPeriodDays > 0：
+      FinishOrder 仅设 expectedSettleTime = 现在 + 保护期（N 天）
+      记录保持 Frozen，等待定时任务
 
-售后保护期结束（Hangfire 定时任务）
-  → 检查：无进行中的售后
+售后保护期结束（Hangfire 定时任务 CommissionSettlementJob，每小时扫描）
+  → 检查：无进行中售后（BillAftersalesStatus.WaitAudit）
   → Frozen → Available
   → commissionFrozen 减少，commissionAvailable 增加
 ```
@@ -449,32 +453,15 @@ public class CommissionSettlementJob
     /// </summary>
     public async Task Execute()
     {
-        var now = DateTime.Now;
-
-        // 查询满足条件的佣金记录
-        var candidates = await _dal.QueryListByClauseAsync(
-            p => p.status == (int)CommissionStatus.Frozen
-              && p.expectedSettleTime != null
-              && p.expectedSettleTime <= now);
-
-        foreach (var item in candidates)
-        {
-            // 检查该订单是否有进行中的售后
-            var hasActiveAftersales = await _aftersalesServices.ExistsAsync(
-                p => p.orderId == item.orderId
-                  && p.status != (int)AftersalesStatus.Closed
-                  && p.status != (int)AftersalesStatus.Rejected);
-
-            if (hasActiveAftersales)
-            {
-                continue;  // 有售后，暂不结算
-            }
-
-            // 执行结算
-            await SettleSingleCommission(item);
-        }
+        // 实现：调用 CoreCmsDistributionOrderServices.SettleDueCommissions()
+        // 该方法内部完成扫描 + 售后守卫 + SettleSingleCommission 逐笔结算。
+        // 幂等：SettleSingleCommission 内部状态守卫 + 幂等键，重复调度不会重复入账。
     }
 }
 ```
 
-**幂等保证**：`SettleSingleCommission` 内部使用状态条件更新，重复执行不会重复入账。
+**实现要点（已落地）**：
+- `CommissionSettlementJob` 位于 `CoreCms.Net.Task`，在 `HangfireDispose.HangfireService()` 中注册为每小时的 RecurringJob（cron `0 0 0/1 * * ?`）。
+- 新增 `ICoreCmsDistributionOrderServices.SettleDueCommissions()`：扫描 `status=Frozen && expectedSettleTime != null && expectedSettleTime <= now && !isDelete`，对每笔查询该 `orderId` 是否存在 `BillAftersalesStatus.WaitAudit` 售后，有则跳过，无则调 `SettleSingleCommission`。
+- **保护期门控**：`Distribution:CommissionProtectionPeriodDays`（默认 `"0"`=立刻结算，旧行为不变）。`>0` 时 `FinishOrder` 不再立即结算，而是设 `expectedSettleTime = Now + N天`，留待本定时任务到期结算。
+- 幂等保证：`SettleSingleCommission` 内部状态守卫，重复执行不会重复入账。
