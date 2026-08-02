@@ -5,7 +5,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MediatR" Version="13.1.0" />
+    <PackageReference Include="MediatR" Version="12.4.1" />
+    <!-- 12.4.1 = 最后一个 Apache-2.0 OSS 版本；13.x+ 改为 RPL-1.5 + LuckyPenny 商业双协议，
+         对 CoreShop (Apache 2.0) 项目有传染性。当前仅用 IRequest/IRequestHandler/IMediator.Send 基础 API，
+         12.4.1 全部支持，零业务代码改动。 -->
     <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.9" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
